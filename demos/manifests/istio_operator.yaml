@@ -1,0 +1,35 @@
+# This manifest assumes hack/kind-istio-cluster.sh was used to create the k8s cluster.
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: istiocontrolplane
+  namespace: istio-system
+spec:
+  components:
+    ingressGateways:
+    - enabled: true
+      k8s:
+        service:
+          ports:
+          - name: status-port
+            nodePort: 30148
+            port: 15021
+            protocol: TCP
+            targetPort: 15021
+          - name: http2
+            nodePort: 30080
+            port: 80
+            protocol: TCP
+            targetPort: 8080
+          - name: https
+            nodePort: 30443
+            port: 443
+            protocol: TCP
+            targetPort: 8443
+          type: NodePort
+      label:
+        app: istio-ingressgateway
+        istio: ingressgateway
+      name: istio-ingressgateway
+      namespace: istio-system
+  profile: default
