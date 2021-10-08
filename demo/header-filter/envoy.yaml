@@ -35,11 +35,11 @@ static_resources:
                             code:
                               local:
                                 filename: "main.wasm"
-                          configuration:
-                            "@type": type.googleapis.com/google.protobuf.StringValue
-                            value: |
-                              header_1=somevalue
-                              header_2=secondvalue
+                          #configuration:
+                          #  "@type": type.googleapis.com/google.protobuf.StringValue
+                          #  value: |
+                          #    header_1=somevalue
+                          #    header_2=secondvalue
                   - name: envoy.filters.http.router
 admin:
   access_log_path: "/dev/null"

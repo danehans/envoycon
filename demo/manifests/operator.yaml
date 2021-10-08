@@ -11,11 +11,6 @@ spec:
       k8s:
         service:
           ports:
-          - name: status-port
-            nodePort: 30148
-            port: 15021
-            protocol: TCP
-            targetPort: 15021
           - name: http2
             nodePort: 30080
             port: 80

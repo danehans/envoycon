@@ -13,9 +13,18 @@ header to response headers.
 - [TinyGo](https://tinygo.org/getting-started/install/)
 - [Envoy](https://www.envoyproxy.io/docs/envoy/latest/start/install)
 
-## Scaffolding the Wasm module
+## Bootstrap the project
 
-We'll start by creating a new folder for our extension, initializing the Go module, and downloading the SDK dependency:
+### Option 1: Use the demo repo
+
+Clone the demo repo:
+```shell
+git clone https://github.com/danehans/envoycon.git && cd envoycon/demo/header-filter
+```
+
+### Option 2: From scratch
+
+Create a directory for our extension, initialize the Go module, and download the SDK dependency:
 
 ```sh
 $ mkdir header-filter && cd header-filter
@@ -23,6 +32,8 @@ $ go mod init header-filter
 $ go mod edit -require=github.com/tetratelabs/proxy-wasm-go-sdk@main
 $ go mod download github.com/tetratelabs/proxy-wasm-go-sdk
 ```
+
+## Create the Wasm module
 
 Next, let's create the `main.go` file where the code for our WASM extension will live:
 
@@ -149,7 +160,7 @@ The Envoy configuration sets up a single listener on port 10000 that returns a d
 `Hello World`. Inside the `http_filters` section, we're configuring the `envoy.filters.http.wasm` filter and referencing
 the local WASM file (`main.wasm`) we've built earlier.
 
-Let's run the Envoy with this configuration:
+Let's run Envoy with this configuration:
 
 ```sh
 envoy -c envoy.yaml --concurrency 2 --log-format '%v'
@@ -170,7 +181,7 @@ wasm log: 2 finished
 ```
 
 The output shows the three log entries - one from the `OnHttpRequestHeaders()` handler and the second one from the
-`OnHttpResponseHeaders()` handler. The last line is from `OnHttpStreamDone()` indicating the filter is done processing
+`OnHttpResponseHeaders()` handler. The last line is from `OnHttpStreamDone()`, indicating the filter is done processing
 and logs the context ID.
 
 Stop the Envoy process by pressing CTRL+C.
@@ -448,6 +459,27 @@ envoy_hello_header_counter{} 1
 
 ## Deploying Wasm module to Istio using EnvoyFilter
 
+You can skip the prerequisites if you are using an existing Istio mesh (v1.9 or greater).
+
+### Prerequisites
+
+- [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/)
+- [Kubectl](https://v1-18.docs.kubernetes.io/docs/tasks/tools/install-kubectl/)
+- [Istioctl](https://istio.io/latest/docs/setup/getting-started/#download)
+
+Create the Kubernetes cluster using the provided `demo/hack/kind.sh` script. Note that the script maps host ports 80/443
+to Istio ingress gateway container ports 30080/30443.
+
+Install the Istio operator:
+```shell
+istioctl operator init
+```
+
+After the operator is running, install Istio using the provided operator manifest:
+```shell
+kubectl apply -f demo/manifests/operator.yaml
+```
+
 The EnvoyFilter resource is used to deploy a Wasm module to Envoy proxies for Istio. EnvoyFilter gives us the ability to
 customize the Envoy configuration. It allows us to modify values, configure new listeners or clusters, and add filters.
 
@@ -491,8 +523,8 @@ sidecar.istio.io/userMount: '[{"name": "wasmfilters", "mountPath": "/wasmfilters
 sidecar.istio.io/userVolume: '[{"name": "wasmfilters", "gcePersistentDisk": { "pdName": "my-data-disk", "fsType": "ext4" }}]'
 ```
 
-Note that the above snippet assumes a persistent disk running in GCP. The disk could be any other persistent volume as
-well. We'd then have to patch the existing Kubernetes deployments and 'inject' the above annotations.
+Note that the above snippet assumes a persistent disk. The disk could be any other persistent volume as well. We'd then
+have to patch the existing Kubernetes deployments and 'inject' the above annotations.
 
 Luckily for us, there is another option. Remember the local field from the Envoy HTTP Wasm filter configuration? Well,
 there's also a remote field we can use to load the Wasm module from a remote location, a URL. The remote field
@@ -501,24 +533,8 @@ it.
 
 In this example, the module has been uploaded to my GitHub repo.
 
-The updated configuration would now look like this:
-
-```yaml
-vm_config:
-  runtime: envoy.wasm.runtime.v8
-  code:
-    remote:
-      http_uri:
-        uri: [PUBLIC-URL]/extension.wasm
-        sha256: "[sha]"
-```
-
-You can get the SHA by running sha256sum command. If you're using Istio 1.9 or newer, you don't have to provide the
-sha256 checksum, as Istio will fill that automatically. However, if you're using Istio 1.8 or older, the sha256 checksum
-is required, and it prevents the Wasm module from being downloaded each time.
-
-We can now create the EnvoyFilter resource that tells Envoy where to download the extension as well as where to inject:
-
+We can now create the EnvoyFilter resource that tells Envoy where to download the extension as well as where to inject
+it:
 ```yaml
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -542,7 +558,7 @@ spec:
                 code:
                   remote:
                     http_uri:
-                      uri: http://istio-weekly-ep7.storage.googleapis.com/main.wasm
+                      uri: https://github.com/danehans/envoycon/blob/main/demos/header-filter/main.wasm?raw=true
               configuration:
                 "@type": type.googleapis.com/google.protobuf.StringValue
                 value: |
@@ -570,7 +586,7 @@ Note that we're deploying the EnvoyFilters to the default namespace. We could al
 (e.g. `istio-system`) if we wanted to apply the filter to all workloads in the mesh. Additionally, we could specify the
 selectors to pick the workloads to which we want to apply the filter.
 
-Save the above YAML to `envoyfilter.yaml` file and create it:
+Save the above YAML to envoyfilter.yaml file and create it:
 
 ```sh
 $ kubectl apply -f envoyfilter.yaml
@@ -579,7 +595,7 @@ envoyfilter.networking.istio.io/headers-extension created
 
 To try out the module, you can deploy a sample workload.
 
-I am using this httpbin example:
+I'm using this httpbin example:
 
 ```yaml
 apiVersion: v1
@@ -627,9 +643,9 @@ spec:
         - containerPort: 80
 ```
 
-Save the above file to `httpbin.yaml` and deploy it using `kubectl apply -f httpbin.yaml`.
+Save the above file to httpbin.yaml and deploy it using `kubectl apply -f httpbin.yaml`.
 
-Before continuing, check that the httpbin Pod is up and running:
+Before continuing, check that the httpbin is running and the Envoy sidecar was injected:
 
 ```sh
 $ kubectl get po
@@ -637,10 +653,14 @@ NAME                       READY   STATUS        RESTARTS   AGE
 httpbin-66cdbdb6c5-4pv44   2/2     Running       1          11m
 ```
 
-To see if something went wrong with downloading the Wasm module, you can look at the istiod logs.
+To see if something went wrong with downloading the Wasm module, you can look at the Istiod logs:
+```sh
+kubectl logs deploy/istiod -n istio-system
+```
 
 Let's try out the deployed Wasm module!
 
+### Option 1: Internal
 We will create a single Pod inside the cluster, and from there, we will send a request to `http://httpbin:8000/get`
 
 ```sh
@@ -654,19 +674,16 @@ Once you get the prompt to the curl container, send a request to the `httpbin` s
 
 ```sh
 / $ curl -v http://httpbin:8000/headers
-> GET /headers HTTP/1.1
-> User-Agent: curl/7.35.0
-> Host: httpbin:8000
-> Accept: */*
->
-< HTTP/1.1 200 OK
-< server: envoy
-< date: Mon, 22 Jun 2021 18:52:17 GMT
-< content-type: application/json
-< content-length: 525
-< access-control-allow-origin: *
-< access-control-allow-credentials: true
-< x-envoy-upstream-service-time: 3
+...
+< header_1: somevalue
+< header_2: secondvalue
+```
+
+### Option 2: External
+
+Since the example httpbin includes an Istio Gateway and VirtualService, you can your Wasm module externally:
+```shell
+$ curl -v -H "Host: demo.envoy.con" http://127.0.0.1/headers
 < header_1: somevalue
 < header_2: secondvalue
 ...
@@ -680,7 +697,9 @@ To delete all created resources from your cluster, run the following:
 
 ```sh
 kubectl delete envoyfilter headers-extension
-kubectl delete deployment httpbin
+kubectl delete deploy httpbin
 kubectl delete svc httpbin
 kubectl delete sa httpbin
+kubectl delete vs httpbin
+kubectl delete gw httpbin
 ```
