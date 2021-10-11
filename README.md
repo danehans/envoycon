@@ -558,7 +558,7 @@ spec:
                 code:
                   remote:
                     http_uri:
-                      uri: https://github.com/danehans/envoycon/blob/main/demos/header-filter/main.wasm?raw=true
+                      uri: https://github.com/danehans/envoycon/blob/main/demo/header-filter/main.wasm?raw=true
               configuration:
                 "@type": type.googleapis.com/google.protobuf.StringValue
                 value: |
