@@ -63,7 +63,7 @@ metadata:
   name: httpbin
 spec:
   hosts:
-  - "demo.envoy.con"
+  - "envoycon.daneyon.com"
   gateways:
   - httpbin
   http:

@@ -169,9 +169,11 @@ envoy -c envoy.yaml --concurrency 2 --log-format '%v'
 In a separate terminal window, send a request to the port Envoy is listening on (`10000`):
 
 ```sh
-$ curl http://127.0.0.1:10000
+$ curl http://envoycon.daneyon.com:10000
 Hello World
 ```
+
+__Note:__ "envoycon.daneyon.com" resolves to 127.0.0.1.
 
 Envoy should log the following:
 ```sh
@@ -219,7 +221,7 @@ envoy -c envoy.yaml --concurrency 2 --log-format '%v'
 Now, if we send a request again (make sure to add the `-v` flag), we'll see the header that was added to the response:
 
 ```sh
-$ curl -v http://127.0.0.1:10000
+$ curl -v http://envoycon.daneyon.com:10000
 ...
 < my-new-header: some-value-here
 ...
@@ -351,7 +353,7 @@ With the filter updated, we can re-run the proxy again. When you send a request,
 filter configuration are added as response headers:
 
 ```sh
-$ curl -v http://127.0.0.1:10000
+$ curl -v http://envoycon.daneyon.com:10000
 ...
 < header_1: somevalue
 < header_2: secondvalue
@@ -440,7 +442,7 @@ tinygo build -o main.wasm -scheduler=none -target=wasi main.go
 And then re-run the Envoy proxy. Make a couple of requests like this:
 
 ```sh
-curl -H "hello: something" http://127.0.0.1:10000
+curl -H "hello: something" http://envoycon.daneyon.com:10000
 ```
 
 The Envoy log should include the following message:
@@ -478,6 +480,11 @@ istioctl operator init
 After the operator is running, install Istio using the provided operator manifest:
 ```shell
 kubectl apply -f demo/manifests/operator.yaml
+```
+
+Enable automatic Istio sidecar injection for the default namespace:
+```shell
+kubectl label ns/default istio-injection=enabled
 ```
 
 The EnvoyFilter resource is used to deploy a Wasm module to Envoy proxies for Istio. EnvoyFilter gives us the ability to
@@ -593,9 +600,7 @@ $ kubectl apply -f envoyfilter.yaml
 envoyfilter.networking.istio.io/headers-extension created
 ```
 
-To try out the module, you can deploy a sample workload.
-
-I'm using this httpbin example:
+To try out the module, you can deploy a sample workload. I'm using this httpbin example:
 
 ```yaml
 apiVersion: v1
@@ -683,7 +688,7 @@ Once you get the prompt to the curl container, send a request to the `httpbin` s
 
 Since the example httpbin includes an Istio Gateway and VirtualService, you can your Wasm module externally:
 ```shell
-$ curl -v -H "Host: demo.envoy.con" http://127.0.0.1/headers
+$ curl -v http://envoycon.daneyon.com/headers
 < header_1: somevalue
 < header_2: secondvalue
 ...
